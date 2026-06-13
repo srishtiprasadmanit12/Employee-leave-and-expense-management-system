@@ -3,6 +3,12 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
 import { User } from '../models/User.js'
 
+export const ROLES = {
+  ADMIN: 'ADMIN',
+  MANAGER: 'MANAGER',
+  EMPLOYEE: 'EMPLOYEE'
+}
+
 export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || ''
@@ -23,5 +29,19 @@ export const protect = async (req, res, next) => {
     return next()
   } catch (error) {
     return res.status(401).json({ message: 'Invalid or expired token' })
+  }
+}
+
+export const authorize = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' })
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: insufficient role' })
+    }
+
+    return next()
   }
 }
