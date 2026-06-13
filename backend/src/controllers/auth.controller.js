@@ -1,5 +1,6 @@
 import { env } from '../config/env.js'
 import { User } from '../models/User.js'
+import { ROLES } from '../middlewares/auth.middleware.js'
 import { generateToken } from '../utils/jwt.js'
 
 const createAuthResponse = user => {
@@ -41,11 +42,17 @@ export const register = async (req, res) => {
       return res.status(409).json({ message: 'User already exists' })
     }
 
+    if (role && role !== ROLES.EMPLOYEE) {
+      return res.status(403).json({
+        message: 'You cannot self-assign privileged roles during registration'
+      })
+    }
+
     const user = await User.create({
       name,
       email,
       password,
-      role,
+      role: ROLES.EMPLOYEE,
       department,
       designation,
       managerId
@@ -95,4 +102,10 @@ export const logout = async (_req, res) => {
 
 export const getProfile = async (req, res) => {
   return res.status(200).json({ user: req.user })
+}
+
+export const approveLeaveSample = async (req, res) => {
+  return res.status(200).json({
+    message: `Leave ${req.params.leaveId} approved by ${req.user.role}`
+  })
 }
