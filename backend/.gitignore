@@ -1,0 +1,9 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Optional: ignore all env variants
+.env.*
+!.env.example
