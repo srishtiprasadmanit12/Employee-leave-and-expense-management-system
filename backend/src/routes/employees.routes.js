@@ -1,22 +1,24 @@
 import express from 'express'
 
 import {
-  createUserByAdmin,
-  deleteUserByAdmin,
-  getUserById,
-  listUsers,
-  updateUserByAdmin
-} from '../controllers/users.controller.js'
-import { authorize, protect, ROLES } from '../middlewares/auth.middleware.js'
+  getEmployeeById,
+  getEmployeeTeam,
+  listEmployees
+} from '../controllers/employees.controller.js'
+import { protect } from '../middlewares/auth.middleware.js'
 
 const router = express.Router()
 
-router.use(protect, authorize(ROLES.ADMIN))
+// All employees routes require authentication
+router.use(protect)
 
-router.get('/', listUsers)
-router.get('/:userId', getUserById)
-router.post('/', createUserByAdmin)
-router.patch('/:userId', updateUserByAdmin)
-router.delete('/:userId', deleteUserByAdmin)
+// List all employees (non-admin users)
+router.get('/', listEmployees)
+
+// Get authenticated user's team (managers only)
+router.get('/team/my-team', getEmployeeTeam)
+
+// Get specific employee by ID
+router.get('/:employeeId', getEmployeeById)
 
 export default router
