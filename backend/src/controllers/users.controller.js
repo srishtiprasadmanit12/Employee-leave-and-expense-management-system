@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { User } from '../models/User.js'
+import { createAuditLog } from '../utils/audit.js'
 
 const VALID_ROLES = Object.values(ROLES)
 
@@ -198,6 +199,17 @@ export const createUserByAdmin = async (req, res) => {
 
     const user = await User.findById(createdUser._id).select('-password')
 
+    await createAuditLog({
+      action: 'USER_CREATED',
+      performedBy: req.user._id,
+      targetId: createdUser._id,
+      targetType: 'USER',
+      details: {
+        role: createdUser.role,
+        email: createdUser.email
+      }
+    })
+
     return res.status(201).json({ user: toUserResponse(user) })
   } catch (error) {
     return res
@@ -265,7 +277,25 @@ export const updateUserByAdmin = async (req, res) => {
       user.password = password
     }
 
+    const changedFields = {
+      name,
+      email: email !== undefined ? email.toLowerCase() : undefined,
+      role,
+      department,
+      designation,
+      managerId: managerId !== undefined ? managerId || null : undefined,
+      passwordUpdated: password !== undefined
+    }
+
     await user.save()
+
+    await createAuditLog({
+      action: 'USER_UPDATED',
+      performedBy: req.user._id,
+      targetId: user._id,
+      targetType: 'USER',
+      details: changedFields
+    })
 
     const updatedUser = await User.findById(user._id).select('-password')
 
@@ -299,6 +329,17 @@ export const deleteUserByAdmin = async (req, res) => {
     if (!deletedUser) {
       return res.status(404).json({ message: 'User not found' })
     }
+
+    await createAuditLog({
+      action: 'USER_DELETED',
+      performedBy: req.user._id,
+      targetId: deletedUser._id,
+      targetType: 'USER',
+      details: {
+        email: deletedUser.email,
+        role: deletedUser.role
+      }
+    })
 
     return res.status(200).json({ message: 'User deleted successfully' })
   } catch (error) {
