@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { Expense } from '../models/Expense.js'
 import { User } from '../models/User.js'
+import { createNotification } from '../utils/notification.js'
 
 const isManager = user => user.role === ROLES.MANAGER
 
@@ -66,12 +67,10 @@ export const getMyExpenses = async (req, res) => {
       createdAt: -1
     })
 
-    return res
-      .status(200)
-      .json({
-        expenses: expenses.map(toExpenseResponse),
-        total: expenses.length
-      })
+    return res.status(200).json({
+      expenses: expenses.map(toExpenseResponse),
+      total: expenses.length
+    })
   } catch (error) {
     return res
       .status(500)
@@ -93,19 +92,15 @@ export const listExpensesForReview = async (req, res) => {
 
     const expenses = await Expense.find(filters).sort({ createdAt: -1 })
 
-    return res
-      .status(200)
-      .json({
-        expenses: expenses.map(toExpenseResponse),
-        total: expenses.length
-      })
+    return res.status(200).json({
+      expenses: expenses.map(toExpenseResponse),
+      total: expenses.length
+    })
   } catch (error) {
-    return res
-      .status(500)
-      .json({
-        message: 'Failed to fetch expense requests',
-        error: error.message
-      })
+    return res.status(500).json({
+      message: 'Failed to fetch expense requests',
+      error: error.message
+    })
   }
 }
 
@@ -148,6 +143,12 @@ const reviewExpense = async (req, res, nextStatus) => {
   expense.status = nextStatus
   expense.approvedBy = req.user._id
   await expense.save()
+
+  await createNotification({
+    userId: expense.employeeId,
+    title: `Expense ${nextStatus}`,
+    message: `Your expense request has been ${nextStatus.toLowerCase()} by ${req.user.role}.`
+  })
 
   return res.status(200).json({ expense: toExpenseResponse(expense) })
 }

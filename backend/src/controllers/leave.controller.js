@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { Leave } from '../models/Leave.js'
 import { User } from '../models/User.js'
+import { createNotification } from '../utils/notification.js'
 
 const isManager = user => user.role === ROLES.MANAGER
 
@@ -183,6 +184,12 @@ const reviewLeave = async (req, res, nextStatus) => {
   leave.status = nextStatus
   leave.approvedBy = req.user._id
   await leave.save()
+
+  await createNotification({
+    userId: leave.employeeId,
+    title: `Leave ${nextStatus}`,
+    message: `Your leave request has been ${nextStatus.toLowerCase()} by ${req.user.role}.`
+  })
 
   return res.status(200).json({ leave: toLeaveResponse(leave) })
 }
