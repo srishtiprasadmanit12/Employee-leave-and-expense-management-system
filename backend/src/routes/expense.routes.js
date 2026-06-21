@@ -7,13 +7,20 @@ import {
   listExpensesForReview,
   rejectExpense
 } from '../controllers/expense.controller.js'
+import { attachUploadedReceiptUrl } from '../controllers/upload.controller.js'
 import { authorize, protect, ROLES } from '../middlewares/auth.middleware.js'
+import { receiptUpload } from '../middlewares/upload.middleware.js'
 
 const router = express.Router()
 
 router.use(protect)
 
-router.post('/', createExpense)
+router.post(
+  '/',
+  receiptUpload.single('receipt'),
+  attachUploadedReceiptUrl,
+  createExpense
+)
 router.get('/my', getMyExpenses)
 
 router.get(

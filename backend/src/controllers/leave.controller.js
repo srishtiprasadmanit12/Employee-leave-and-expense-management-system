@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { Leave } from '../models/Leave.js'
 import { User } from '../models/User.js'
+import { createAuditLog } from '../utils/audit.js'
 import { createNotification } from '../utils/notification.js'
 
 const isManager = user => user.role === ROLES.MANAGER
@@ -189,6 +190,17 @@ const reviewLeave = async (req, res, nextStatus) => {
     userId: leave.employeeId,
     title: `Leave ${nextStatus}`,
     message: `Your leave request has been ${nextStatus.toLowerCase()} by ${req.user.role}.`
+  })
+
+  await createAuditLog({
+    action: `LEAVE_${nextStatus}`,
+    performedBy: req.user._id,
+    targetId: leave._id,
+    targetType: 'LEAVE',
+    details: {
+      employeeId: leave.employeeId,
+      status: nextStatus
+    }
   })
 
   return res.status(200).json({ leave: toLeaveResponse(leave) })

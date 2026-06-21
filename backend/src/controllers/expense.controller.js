@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { Expense } from '../models/Expense.js'
 import { User } from '../models/User.js'
+import { createAuditLog } from '../utils/audit.js'
 import { createNotification } from '../utils/notification.js'
 
 const isManager = user => user.role === ROLES.MANAGER
@@ -148,6 +149,18 @@ const reviewExpense = async (req, res, nextStatus) => {
     userId: expense.employeeId,
     title: `Expense ${nextStatus}`,
     message: `Your expense request has been ${nextStatus.toLowerCase()} by ${req.user.role}.`
+  })
+
+  await createAuditLog({
+    action: `EXPENSE_${nextStatus}`,
+    performedBy: req.user._id,
+    targetId: expense._id,
+    targetType: 'EXPENSE',
+    details: {
+      employeeId: expense.employeeId,
+      status: nextStatus,
+      amount: expense.amount
+    }
   })
 
   return res.status(200).json({ expense: toExpenseResponse(expense) })
