@@ -1,0 +1,30 @@
+:root {
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  color: #132027;
+  background: #fffdf7;
+  line-height: 1.4;
+  font-weight: 500;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+a {
+  color: #004a66;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #0d6a8f;
+}
