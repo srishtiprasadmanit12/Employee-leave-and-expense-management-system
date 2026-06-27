@@ -4,48 +4,31 @@ import { Link } from 'react-router-dom'
 
 import {
   clearEmployeesError,
-  createEmployee,
-  deleteEmployee,
+  clearTeamMembers,
   fetchEmployeeById,
   fetchEmployees,
+  fetchMyTeam,
   resetSelectedEmployee,
-  setEmployeeFilters,
-  updateEmployee
+  setEmployeeFilters
 } from '../features/employees/employeesSlice'
-
-const emptyForm = {
-  name: '',
-  email: '',
-  password: '',
-  role: 'EMPLOYEE',
-  department: '',
-  designation: '',
-  managerId: ''
-}
 
 const EmployeesPage = () => {
   const dispatch = useDispatch()
   const { user } = useSelector(state => state.auth)
   const {
     items,
+    teamMembers,
     loading,
-    submitting,
     error,
     pagination,
     filters,
     selectedEmployee
   } = useSelector(state => state.employees)
 
-  const [formMode, setFormMode] = useState('create')
-  const [editEmployeeId, setEditEmployeeId] = useState(null)
   const [pageInput, setPageInput] = useState(1)
-  const [formData, setFormData] = useState(emptyForm)
+  const [showTeam, setShowTeam] = useState(false)
 
-  const managerOptions = useMemo(
-    () =>
-      items.filter(item => item.role === 'ADMIN' || item.role === 'MANAGER'),
-    [items]
-  )
+  const isManager = useMemo(() => user?.role === 'MANAGER', [user?.role])
 
   const loadEmployees = (page = 1) => {
     dispatch(
@@ -67,6 +50,7 @@ const EmployeesPage = () => {
     loadEmployees(1)
     return () => {
       dispatch(clearEmployeesError())
+      dispatch(clearTeamMembers())
       dispatch(resetSelectedEmployee())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,98 +61,25 @@ const EmployeesPage = () => {
     dispatch(setEmployeeFilters({ [name]: value }))
   }
 
-  const onFormChange = event => {
-    const { name, value } = event.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+  const onLoadEmployee = employeeId => {
+    dispatch(fetchEmployeeById(employeeId))
   }
 
-  const onCreateSubmit = async event => {
-    event.preventDefault()
-    const payload = {
-      ...formData,
-      managerId: formData.managerId || null
+  const onToggleMyTeam = () => {
+    if (showTeam) {
+      setShowTeam(false)
+      return
     }
 
-    const result = await dispatch(createEmployee(payload))
-    if (createEmployee.fulfilled.match(result)) {
-      setFormData(emptyForm)
-      loadEmployees(pagination.page)
-    }
-  }
-
-  const onStartEdit = async employeeId => {
-    setFormMode('edit')
-    setEditEmployeeId(employeeId)
-
-    const result = await dispatch(fetchEmployeeById(employeeId))
-    if (fetchEmployeeById.fulfilled.match(result)) {
-      const employee = result.payload
-      setFormData({
-        name: employee.name || '',
-        email: employee.email || '',
-        password: '',
-        role: employee.role || 'EMPLOYEE',
-        department: employee.department || '',
-        designation: employee.designation || '',
-        managerId: employee.managerId || ''
+    setShowTeam(true)
+    dispatch(
+      fetchMyTeam({
+        page: 1,
+        limit: 50,
+        search: filters.search || undefined,
+        department: filters.department || undefined
       })
-    }
-  }
-
-  const onCancelEdit = () => {
-    setFormMode('create')
-    setEditEmployeeId(null)
-    setFormData(emptyForm)
-    dispatch(resetSelectedEmployee())
-  }
-
-  const onUpdateSubmit = async event => {
-    event.preventDefault()
-    if (!editEmployeeId) {
-      return
-    }
-
-    const payload = {
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      department: formData.department,
-      designation: formData.designation,
-      managerId: formData.managerId || null
-    }
-
-    if (formData.password) {
-      payload.password = formData.password
-    }
-
-    const result = await dispatch(
-      updateEmployee({ employeeId: editEmployeeId, payload })
     )
-    if (updateEmployee.fulfilled.match(result)) {
-      onCancelEdit()
-      loadEmployees(pagination.page)
-    }
-  }
-
-  const onDelete = async employeeId => {
-    const confirmed = window.confirm(
-      'Delete this employee? This cannot be undone.'
-    )
-    if (!confirmed) {
-      return
-    }
-
-    const result = await dispatch(deleteEmployee(employeeId))
-    if (deleteEmployee.fulfilled.match(result)) {
-      const targetPage =
-        pagination.page > 1 && items.length === 1
-          ? pagination.page - 1
-          : pagination.page
-      loadEmployees(targetPage)
-    }
   }
 
   const onPageSubmit = event => {
@@ -184,15 +95,22 @@ const EmployeesPage = () => {
     <div className="employees-layout">
       <header className="employees-header">
         <div>
-          <h1>Employee Management</h1>
-          <p>
-            Admin controls for employee CRUD, pagination, search, and filtering.
-          </p>
+          <h1>Employees</h1>
+          <p>Employee directory available to all authenticated users.</p>
         </div>
         <div className="employees-header-links">
           <Link to="/profile" className="secondary-btn button-link">
             My Profile
           </Link>
+          {isManager ? (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={onToggleMyTeam}
+            >
+              {showTeam ? 'Hide My Team' : 'View My Team'}
+            </button>
+          ) : null}
           {user ? <span className="pill">{user.role}</span> : null}
         </div>
       </header>
@@ -219,90 +137,6 @@ const EmployeesPage = () => {
             onChange={onFilterChange}
           />
         </div>
-      </section>
-
-      <section className="panel">
-        <h2>{formMode === 'create' ? 'Add Employee' : 'Update Employee'}</h2>
-        <form
-          className="employee-form-grid"
-          onSubmit={formMode === 'create' ? onCreateSubmit : onUpdateSubmit}
-        >
-          <input
-            name="name"
-            placeholder="Full name"
-            value={formData.name}
-            onChange={onFormChange}
-            required
-          />
-          <input
-            name="email"
-            placeholder="Email"
-            type="email"
-            value={formData.email}
-            onChange={onFormChange}
-            required
-          />
-          <input
-            name="password"
-            placeholder={
-              formMode === 'create' ? 'Password' : 'New password (optional)'
-            }
-            type="password"
-            minLength={6}
-            value={formData.password}
-            onChange={onFormChange}
-            required={formMode === 'create'}
-          />
-          <select name="role" value={formData.role} onChange={onFormChange}>
-            <option value="EMPLOYEE">EMPLOYEE</option>
-            <option value="MANAGER">MANAGER</option>
-            <option value="ADMIN">ADMIN</option>
-          </select>
-          <input
-            name="department"
-            placeholder="Department"
-            value={formData.department}
-            onChange={onFormChange}
-          />
-          <input
-            name="designation"
-            placeholder="Designation"
-            value={formData.designation}
-            onChange={onFormChange}
-          />
-          <select
-            name="managerId"
-            value={formData.managerId}
-            onChange={onFormChange}
-          >
-            <option value="">No Manager</option>
-            {managerOptions.map(option => (
-              <option key={option.id} value={option.id}>
-                {option.name} ({option.role})
-              </option>
-            ))}
-          </select>
-
-          <div className="employee-form-actions">
-            <button type="submit" disabled={submitting}>
-              {submitting
-                ? 'Saving...'
-                : formMode === 'create'
-                  ? 'Add Employee'
-                  : 'Update Employee'}
-            </button>
-            {formMode === 'edit' ? (
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={onCancelEdit}
-                disabled={submitting}
-              >
-                Cancel Edit
-              </button>
-            ) : null}
-          </div>
-        </form>
       </section>
 
       <section className="panel">
@@ -335,21 +169,13 @@ const EmployeesPage = () => {
                   <td>{employee.department || '-'}</td>
                   <td>{employee.designation || '-'}</td>
                   <td>
-                    <div className="row-actions">
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => onStartEdit(employee.id)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(employee.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => onLoadEmployee(employee.id)}
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -395,6 +221,70 @@ const EmployeesPage = () => {
           </button>
         </div>
       </section>
+
+      {selectedEmployee ? (
+        <section className="panel">
+          <h2>Employee Details</h2>
+          <ul className="profile-list">
+            <li>
+              <span>Name</span>
+              <strong>{selectedEmployee.name}</strong>
+            </li>
+            <li>
+              <span>Email</span>
+              <strong>{selectedEmployee.email}</strong>
+            </li>
+            <li>
+              <span>Role</span>
+              <strong>{selectedEmployee.role}</strong>
+            </li>
+            <li>
+              <span>Department</span>
+              <strong>{selectedEmployee.department || '-'}</strong>
+            </li>
+            <li>
+              <span>Designation</span>
+              <strong>{selectedEmployee.designation || '-'}</strong>
+            </li>
+          </ul>
+        </section>
+      ) : null}
+
+      {isManager && showTeam ? (
+        <section className="panel">
+          <div className="employee-list-header">
+            <h2>My Team</h2>
+            <span className="pill">Members: {teamMembers.length}</span>
+          </div>
+          <div className="table-wrap">
+            <table className="employees-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Designation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamMembers.map(member => (
+                  <tr key={member.id}>
+                    <td>{member.name}</td>
+                    <td>{member.email}</td>
+                    <td>{member.role}</td>
+                    <td>{member.department || '-'}</td>
+                    <td>{member.designation || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {teamMembers.length === 0 && !loading ? (
+            <p>No team members found.</p>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   )
 }

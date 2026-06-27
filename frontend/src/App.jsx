@@ -10,6 +10,7 @@ import LeavesPage from './pages/LeavesPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import RegisterPage from './pages/RegisterPage'
+import UsersPage from './pages/UsersPage'
 import './App.css'
 
 function App() {
@@ -27,9 +28,10 @@ function App() {
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/employees" element={<EmployeesPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/employees" element={<EmployeesPage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
           </Route>
         </Routes>

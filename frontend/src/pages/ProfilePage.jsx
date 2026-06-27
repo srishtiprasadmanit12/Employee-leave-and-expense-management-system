@@ -39,10 +39,13 @@ const ProfilePage = () => {
           <Link to="/expenses" className="secondary-btn button-link">
             Expenses
           </Link>
+          <Link to="/employees" className="secondary-btn button-link">
+            Employees
+          </Link>
           {user?.role === 'ADMIN' ? (
             <>
-              <Link to="/employees" className="secondary-btn button-link">
-                Manage Employees
+              <Link to="/users" className="secondary-btn button-link">
+                Manage Users
               </Link>
               <Link to="/audit-logs" className="secondary-btn button-link">
                 Audit Logs

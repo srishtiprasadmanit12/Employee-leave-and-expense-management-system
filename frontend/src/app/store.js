@@ -7,6 +7,7 @@ import employeesReducer from '../features/employees/employeesSlice'
 import expensesReducer from '../features/expenses/expensesSlice'
 import leavesReducer from '../features/leaves/leavesSlice'
 import notificationsReducer from '../features/notifications/notificationsSlice'
+import usersReducer from '../features/users/usersSlice'
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     leaves: leavesReducer,
     expenses: expensesReducer,
     dashboard: dashboardReducer,
-    notifications: notificationsReducer
+    notifications: notificationsReducer,
+    users: usersReducer
   }
 })
