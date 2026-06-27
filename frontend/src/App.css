@@ -1,3 +1,12 @@
+:root {
+  --ui-border: #dbe5ea;
+  --ui-border-strong: #c7d8df;
+  --ui-text-muted: #3f5b68;
+  --ui-focus: #7ec8c5;
+  --ui-shadow: 0 14px 32px rgba(0, 41, 68, 0.08);
+  --ui-shadow-soft: 0 8px 20px rgba(0, 41, 68, 0.08);
+}
+
 .app-shell {
   position: relative;
   min-height: 100vh;
@@ -25,8 +34,8 @@
 .auth-card,
 .profile-card {
   width: 100%;
-  max-width: 480px;
-  border: 1px solid #dbe5ea;
+  max-width: 760px;
+  border: 1px solid var(--ui-border);
   background: rgba(255, 255, 255, 0.88);
   border-radius: 20px;
   backdrop-filter: blur(4px);
@@ -80,6 +89,10 @@ button {
   font-weight: 600;
   padding: 0.7rem 0.9rem;
   cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 button:disabled {
@@ -87,11 +100,30 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--ui-shadow-soft);
+  filter: saturate(1.05);
+}
+
+button:focus-visible,
+.button-link:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
 .secondary-btn {
   margin-top: 0;
   background: #f3fafb;
   border: 1px solid #cae3eb;
   color: #194f63;
+}
+
+.secondary-btn:hover {
+  background: #eaf5f9;
 }
 
 .button-link {
@@ -102,9 +134,12 @@ button:disabled {
 }
 
 .profile-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 0.6rem;
-  align-items: center;
+  width: min(100%, 520px);
+  max-width: 100%;
+  margin-left: auto;
 }
 
 .profile-header {
@@ -112,6 +147,14 @@ button:disabled {
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.profile-actions .button-link,
+.profile-actions button {
+  width: 100%;
+  min-height: 42px;
+  white-space: nowrap;
 }
 
 .profile-list {
@@ -181,6 +224,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .toast {
@@ -212,11 +256,16 @@ button:disabled {
 
 .module-form-grid input,
 .module-form-grid select {
-  border: 1px solid #c7d8df;
+  border: 1px solid var(--ui-border-strong);
   border-radius: 10px;
   padding: 0.6rem 0.7rem;
   font-size: 0.94rem;
   background: #fff;
+}
+
+.module-form-grid input:focus,
+.module-form-grid select:focus {
+  border-color: var(--ui-focus);
 }
 
 .helper-text {
@@ -407,6 +456,7 @@ button:disabled {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .pill {
@@ -420,11 +470,11 @@ button:disabled {
 }
 
 .panel {
-  border: 1px solid #dbe5ea;
+  border: 1px solid var(--ui-border);
   background: rgba(255, 255, 255, 0.9);
   border-radius: 16px;
   padding: 1rem;
-  box-shadow: 0 14px 32px rgba(0, 41, 68, 0.08);
+  box-shadow: var(--ui-shadow);
 }
 
 .panel h2 {
@@ -443,11 +493,18 @@ button:disabled {
 .filters-grid select,
 .employee-form-grid input,
 .employee-form-grid select {
-  border: 1px solid #c7d8df;
+  border: 1px solid var(--ui-border-strong);
   border-radius: 10px;
   padding: 0.6rem 0.7rem;
   font-size: 0.94rem;
   background: #fff;
+}
+
+.filters-grid input:focus,
+.filters-grid select:focus,
+.employee-form-grid input:focus,
+.employee-form-grid select:focus {
+  border-color: var(--ui-focus);
 }
 
 .employee-form-actions {
@@ -466,6 +523,9 @@ button:disabled {
 
 .table-wrap {
   overflow-x: auto;
+  border: 1px solid #e2ecef;
+  border-radius: 12px;
+  background: #fff;
 }
 
 .employees-table {
@@ -480,6 +540,14 @@ button:disabled {
   padding: 0.65rem 0.55rem;
   text-align: left;
   vertical-align: middle;
+}
+
+.employees-table tbody tr:nth-child(even) {
+  background: #f8fcfd;
+}
+
+.employees-table tbody tr:hover {
+  background: #eff7fa;
 }
 
 .employees-table th {
@@ -508,7 +576,7 @@ button:disabled {
 
 .jump-form input {
   width: 72px;
-  border: 1px solid #c7d8df;
+  border: 1px solid var(--ui-border-strong);
   border-radius: 8px;
   padding: 0.35rem 0.45rem;
 }
@@ -536,14 +604,30 @@ button:disabled {
     flex-direction: column;
   }
 
+  .profile-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    margin-left: 0;
+  }
+
   .employees-header,
   .module-header,
   .module-section-head,
   .employee-list-header,
-  .pagination-bar,
-  .profile-actions {
+  .pagination-bar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .module-links,
+  .employees-header-links {
+    width: 100%;
+  }
+
+  .module-links .button-link,
+  .employees-header-links .button-link,
+  .employees-header-links button {
+    width: 100%;
   }
 
   .notification-card {
@@ -556,5 +640,11 @@ button:disabled {
 
   .module-table {
     min-width: 640px;
+  }
+}
+
+@media (max-width: 420px) {
+  .profile-actions {
+    grid-template-columns: 1fr;
   }
 }

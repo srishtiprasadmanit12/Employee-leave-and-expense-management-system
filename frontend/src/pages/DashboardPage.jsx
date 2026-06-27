@@ -9,6 +9,7 @@ import {
 
 const DashboardPage = () => {
   const dispatch = useDispatch()
+  const { user } = useSelector(state => state.auth)
   const { data, loading, error } = useSelector(state => state.dashboard)
 
   useEffect(() => {
@@ -33,6 +34,14 @@ const DashboardPage = () => {
           <Link to="/profile" className="secondary-btn button-link">
             My Profile
           </Link>
+          <Link to="/employees" className="secondary-btn button-link">
+            Employees
+          </Link>
+          {user?.role === 'ADMIN' ? (
+            <Link to="/users" className="secondary-btn button-link">
+              Manage Users
+            </Link>
+          ) : null}
           <Link to="/notifications" className="secondary-btn button-link">
             Notifications
           </Link>
