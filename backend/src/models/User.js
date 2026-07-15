@@ -45,6 +45,13 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+userSchema.index({ role: 1, createdAt: -1 })
+userSchema.index({ managerId: 1, role: 1, createdAt: -1 })
+userSchema.index({ managerId: 1, name: 1 })
+userSchema.index({ department: 1, createdAt: -1 })
+userSchema.index({ designation: 1, createdAt: -1 })
+userSchema.index({ department: 1, designation: 1 })
+
 userSchema.pre('save', async function save(next) {
   if (!this.isModified('password')) {
     return next()

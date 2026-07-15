@@ -2,6 +2,8 @@ import mongoose from 'mongoose'
 
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { User } from '../models/User.js'
+import { getCache, setCache } from '../utils/cache.js'
+import { buildPaginationMeta, parsePagination } from '../utils/pagination.js'
 
 const toEmployeeResponse = user => ({
   id: user._id,
@@ -34,8 +36,7 @@ export const listEmployees = async (req, res) => {
       sortOrder = 'asc'
     } = req.query
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100)
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
 
     const filters = { role: { $ne: ROLES.ADMIN } } // Exclude admins from employee view
 
@@ -71,6 +72,23 @@ export const listEmployees = async (req, res) => {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'name'
     const safeSortOrder = sortOrder === 'asc' ? 1 : -1
 
+    const cacheKey = [
+      'employees:list',
+      pageNumber,
+      limitNumber,
+      search,
+      department || '',
+      designation || '',
+      managerId || '',
+      safeSortBy,
+      safeSortOrder
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
     const [employees, total] = await Promise.all([
       User.find(filters)
         .select('-password')
@@ -80,19 +98,14 @@ export const listEmployees = async (req, res) => {
       User.countDocuments(filters)
     ])
 
-    const totalPages = Math.max(Math.ceil(total / limitNumber), 1)
-
-    return res.status(200).json({
+    const payload = {
       employees: employees.map(toEmployeeResponse),
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage: pageNumber < totalPages,
-        hasPrevPage: pageNumber > 1
-      }
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)
@@ -111,6 +124,18 @@ export const getEmployeeById = async (req, res) => {
 
     if (!mongoose.isValidObjectId(employeeId)) {
       return res.status(400).json({ message: 'Invalid employeeId' })
+    }
+
+    const cacheKey = [
+      'employees:detail',
+      employeeId,
+      String(requestingUser._id),
+      requestingUser.role
+    ].join(':')
+    const cachedPayload = await getCache(cacheKey)
+
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
     }
 
     const employee = await User.findById(employeeId).select('-password')
@@ -132,7 +157,10 @@ export const getEmployeeById = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
-    return res.status(200).json({ employee: toEmployeeResponse(employee) })
+    const payload = { employee: toEmployeeResponse(employee) }
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)
@@ -168,8 +196,7 @@ export const getEmployeeTeam = async (req, res) => {
       })
     }
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100)
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
 
     const filters = { managerId: requestingUser._id }
 
@@ -186,6 +213,22 @@ export const getEmployeeTeam = async (req, res) => {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'name'
     const safeSortOrder = sortOrder === 'asc' ? 1 : -1
 
+    const cacheKey = [
+      'employees:team',
+      String(requestingUser._id),
+      pageNumber,
+      limitNumber,
+      search,
+      department || '',
+      safeSortBy,
+      safeSortOrder
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
     const [teamMembers, total] = await Promise.all([
       User.find(filters)
         .select('-password')
@@ -195,19 +238,14 @@ export const getEmployeeTeam = async (req, res) => {
       User.countDocuments(filters)
     ])
 
-    const totalPages = Math.max(Math.ceil(total / limitNumber), 1)
-
-    return res.status(200).json({
+    const payload = {
       teamMembers: teamMembers.map(toEmployeeResponse),
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage: pageNumber < totalPages,
-        hasPrevPage: pageNumber > 1
-      }
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)

@@ -2,6 +2,8 @@ import mongoose from 'mongoose'
 
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { User } from '../models/User.js'
+import { buildPaginationMeta, parsePagination } from '../utils/pagination.js'
+import { clearCacheByPrefix, getCache, setCache } from '../utils/cache.js'
 import { createAuditLog } from '../utils/audit.js'
 
 const VALID_ROLES = Object.values(ROLES)
@@ -69,8 +71,7 @@ export const listUsers = async (_req, res) => {
       sortOrder = 'desc'
     } = _req.query
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100)
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
 
     const filters = {}
 
@@ -110,6 +111,24 @@ export const listUsers = async (_req, res) => {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt'
     const safeSortOrder = sortOrder === 'asc' ? 1 : -1
 
+    const cacheKey = [
+      'users:list',
+      pageNumber,
+      limitNumber,
+      search,
+      role || '',
+      department || '',
+      designation || '',
+      managerId || '',
+      safeSortBy,
+      safeSortOrder
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
     const [users, total] = await Promise.all([
       User.find(filters)
         .select('-password')
@@ -119,19 +138,14 @@ export const listUsers = async (_req, res) => {
       User.countDocuments(filters)
     ])
 
-    const totalPages = Math.max(Math.ceil(total / limitNumber), 1)
-
-    return res.status(200).json({
+    const payload = {
       users: users.map(toUserResponse),
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage: pageNumber < totalPages,
-        hasPrevPage: pageNumber > 1
-      }
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)
@@ -147,12 +161,22 @@ export const getUserById = async (req, res) => {
       return res.status(400).json({ message: 'Invalid userId' })
     }
 
+    const cacheKey = `users:detail:${userId}`
+    const cachedPayload = await getCache(cacheKey)
+
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
     const user = await User.findById(userId).select('-password')
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    return res.status(200).json({ user: toUserResponse(user) })
+    const payload = { user: toUserResponse(user) }
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)
@@ -209,6 +233,12 @@ export const createUserByAdmin = async (req, res) => {
         email: createdUser.email
       }
     })
+
+    await Promise.all([
+      clearCacheByPrefix('users:'),
+      clearCacheByPrefix('employees:'),
+      clearCacheByPrefix('dashboard:')
+    ])
 
     return res.status(201).json({ user: toUserResponse(user) })
   } catch (error) {
@@ -297,6 +327,12 @@ export const updateUserByAdmin = async (req, res) => {
       details: changedFields
     })
 
+    await Promise.all([
+      clearCacheByPrefix('users:'),
+      clearCacheByPrefix('employees:'),
+      clearCacheByPrefix('dashboard:')
+    ])
+
     const updatedUser = await User.findById(user._id).select('-password')
 
     return res.status(200).json({ user: toUserResponse(updatedUser) })
@@ -340,6 +376,12 @@ export const deleteUserByAdmin = async (req, res) => {
         role: deletedUser.role
       }
     })
+
+    await Promise.all([
+      clearCacheByPrefix('users:'),
+      clearCacheByPrefix('employees:'),
+      clearCacheByPrefix('dashboard:')
+    ])
 
     return res.status(200).json({ message: 'User deleted successfully' })
   } catch (error) {

@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
 
 import { Notification } from '../models/Notification.js'
+import { clearCacheByPrefix, getCache, setCache } from '../utils/cache.js'
+import { buildPaginationMeta, parsePagination } from '../utils/pagination.js'
 
 const toNotificationResponse = notification => ({
   id: notification._id,
@@ -16,12 +18,24 @@ export const getMyNotifications = async (req, res) => {
   try {
     const { page = '1', limit = '10', unreadOnly = 'false' } = req.query
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100)
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
 
     const filters = { userId: req.user._id }
     if (unreadOnly === 'true') {
       filters.isRead = false
+    }
+
+    const cacheKey = [
+      'notifications:my',
+      String(req.user._id),
+      pageNumber,
+      limitNumber,
+      unreadOnly
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
     }
 
     const [notifications, total, unreadCount] = await Promise.all([
@@ -33,20 +47,15 @@ export const getMyNotifications = async (req, res) => {
       Notification.countDocuments({ userId: req.user._id, isRead: false })
     ])
 
-    const totalPages = Math.max(Math.ceil(total / limitNumber), 1)
-
-    return res.status(200).json({
+    const payload = {
       notifications: notifications.map(toNotificationResponse),
       unreadCount,
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage: pageNumber < totalPages,
-        hasPrevPage: pageNumber > 1
-      }
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res.status(500).json({
       message: 'Failed to fetch notifications',
@@ -75,6 +84,8 @@ export const markNotificationRead = async (req, res) => {
     notification.isRead = true
     await notification.save()
 
+    await clearCacheByPrefix(`notifications:my:${String(req.user._id)}:`)
+
     return res.status(200).json({
       notification: toNotificationResponse(notification)
     })
@@ -91,6 +102,8 @@ export const markAllNotificationsRead = async (req, res) => {
       { userId: req.user._id, isRead: false },
       { $set: { isRead: true } }
     )
+
+    await clearCacheByPrefix(`notifications:my:${String(req.user._id)}:`)
 
     return res.status(200).json({
       message: 'All notifications marked as read',

@@ -1,6 +1,7 @@
 import { env } from '../config/env.js'
 import { User } from '../models/User.js'
 import { ROLES } from '../middlewares/auth.middleware.js'
+import { clearCacheByPrefix } from '../utils/cache.js'
 import { generateToken } from '../utils/jwt.js'
 
 const createAuthResponse = user => {
@@ -57,6 +58,12 @@ export const register = async (req, res) => {
       designation,
       managerId
     })
+
+    await Promise.all([
+      clearCacheByPrefix('users:'),
+      clearCacheByPrefix('employees:'),
+      clearCacheByPrefix('dashboard:')
+    ])
 
     return res.status(201).json(createAuthResponse(user))
   } catch (error) {

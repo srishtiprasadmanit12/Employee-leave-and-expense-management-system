@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
 
 import { AuditLog } from '../models/AuditLog.js'
+import { getCache, setCache } from '../utils/cache.js'
+import { buildPaginationMeta, parsePagination } from '../utils/pagination.js'
 
 const toAuditResponse = log => ({
   id: log._id,
@@ -23,8 +25,7 @@ export const listAuditLogs = async (req, res) => {
       targetId
     } = req.query
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
-    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100)
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
 
     const filters = {}
 
@@ -44,6 +45,21 @@ export const listAuditLogs = async (req, res) => {
       filters.targetId = targetId
     }
 
+    const cacheKey = [
+      'audit:list',
+      pageNumber,
+      limitNumber,
+      action || '',
+      targetType || '',
+      performedBy || '',
+      targetId || ''
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
     const [logs, total] = await Promise.all([
       AuditLog.find(filters)
         .sort({ timestamp: -1 })
@@ -52,19 +68,14 @@ export const listAuditLogs = async (req, res) => {
       AuditLog.countDocuments(filters)
     ])
 
-    const totalPages = Math.max(Math.ceil(total / limitNumber), 1)
-
-    return res.status(200).json({
+    const payload = {
       logs: logs.map(toAuditResponse),
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages,
-        hasNextPage: pageNumber < totalPages,
-        hasPrevPage: pageNumber > 1
-      }
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res.status(500).json({
       message: 'Failed to fetch audit logs',
