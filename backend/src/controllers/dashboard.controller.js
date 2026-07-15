@@ -114,10 +114,10 @@ export const getDashboard = async (req, res) => {
 
       return res.status(200).json(payload)
     }
-
+    const employeeUserId = req.user._id
     const [leaveStatus, expenseStatus] = await Promise.all([
-      getStatusCounts(Leave, { employeeId: userId }),
-      getStatusCounts(Expense, { employeeId: userId })
+      getStatusCounts(Leave, { employeeId: employeeUserId }),
+      getStatusCounts(Expense, { employeeId: employeeUserId })
     ])
 
     const payload = {
