@@ -38,4 +38,9 @@ const auditLogSchema = new mongoose.Schema(
   { timestamps: false }
 )
 
+auditLogSchema.index({ action: 1, timestamp: -1 })
+auditLogSchema.index({ targetType: 1, timestamp: -1 })
+auditLogSchema.index({ performedBy: 1, timestamp: -1 })
+auditLogSchema.index({ targetId: 1, timestamp: -1 })
+
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema)

@@ -43,4 +43,9 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+expenseSchema.index({ employeeId: 1, createdAt: -1 })
+expenseSchema.index({ employeeId: 1, status: 1, createdAt: -1 })
+expenseSchema.index({ status: 1, createdAt: -1 })
+expenseSchema.index({ approvedBy: 1, createdAt: -1 })
+
 export const Expense = mongoose.model('Expense', expenseSchema)

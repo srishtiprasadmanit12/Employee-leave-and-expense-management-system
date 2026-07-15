@@ -4,6 +4,7 @@ import { env } from '../config/env.js'
 
 const toPublicReceiptUrl = filename => {
   const baseUrl = env.apiBaseUrl || `http://localhost:${env.port}`
+  console.log('baseUrl:', baseUrl)
   return `${baseUrl}/uploads/receipts/${filename}`
 }
 

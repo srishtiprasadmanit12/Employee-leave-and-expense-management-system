@@ -1,4 +1,5 @@
 import { AuditLog } from '../models/AuditLog.js'
+import { clearCacheByPrefix } from './cache.js'
 
 export const createAuditLog = async ({
   action,
@@ -11,7 +12,7 @@ export const createAuditLog = async ({
     return null
   }
 
-  return AuditLog.create({
+  const log = await AuditLog.create({
     action,
     performedBy,
     targetId,
@@ -19,4 +20,8 @@ export const createAuditLog = async ({
     details,
     timestamp: new Date()
   })
+
+  await clearCacheByPrefix('audit:')
+
+  return log
 }

@@ -3,6 +3,8 @@ import mongoose from 'mongoose'
 import { ROLES } from '../middlewares/auth.middleware.js'
 import { Expense } from '../models/Expense.js'
 import { User } from '../models/User.js'
+import { buildPaginationMeta, parsePagination } from '../utils/pagination.js'
+import { clearCacheByPrefix, getCache, setCache } from '../utils/cache.js'
 import { createAuditLog } from '../utils/audit.js'
 import { createNotification } from '../utils/notification.js'
 
@@ -54,6 +56,11 @@ export const createExpense = async (req, res) => {
       status: 'PENDING'
     })
 
+    await Promise.all([
+      clearCacheByPrefix('expenses:'),
+      clearCacheByPrefix('dashboard:')
+    ])
+
     return res.status(201).json({ expense: toExpenseResponse(expense) })
   } catch (error) {
     return res
@@ -64,14 +71,46 @@ export const createExpense = async (req, res) => {
 
 export const getMyExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ employeeId: req.user._id }).sort({
-      createdAt: -1
-    })
+    const { page = '1', limit = '10', status, sortOrder = 'desc' } = req.query
 
-    return res.status(200).json({
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
+    const filters = { employeeId: req.user._id }
+
+    if (status) {
+      filters.status = status
+    }
+
+    const safeSortOrder = sortOrder === 'asc' ? 1 : -1
+    const cacheKey = [
+      'expenses:my',
+      String(req.user._id),
+      pageNumber,
+      limitNumber,
+      status || '',
+      safeSortOrder
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
+
+    const [expenses, total] = await Promise.all([
+      Expense.find(filters)
+        .sort({ createdAt: safeSortOrder })
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber),
+      Expense.countDocuments(filters)
+    ])
+
+    const payload = {
       expenses: expenses.map(toExpenseResponse),
-      total: expenses.length
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)
@@ -81,8 +120,30 @@ export const getMyExpenses = async (req, res) => {
 
 export const listExpensesForReview = async (req, res) => {
   try {
-    const status = req.query.status || 'PENDING'
+    const {
+      status = 'PENDING',
+      page = '1',
+      limit = '10',
+      sortOrder = 'desc'
+    } = req.query
+
+    const { pageNumber, limitNumber } = parsePagination({ page, limit })
     const filters = { status }
+    const safeSortOrder = sortOrder === 'asc' ? 1 : -1
+    const cacheKey = [
+      'expenses:review',
+      req.user.role,
+      String(req.user._id),
+      pageNumber,
+      limitNumber,
+      status,
+      safeSortOrder
+    ].join(':')
+
+    const cachedPayload = await getCache(cacheKey)
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
 
     if (isManager(req.user)) {
       const teamMembers = await User.find({ managerId: req.user._id }).select(
@@ -91,12 +152,22 @@ export const listExpensesForReview = async (req, res) => {
       filters.employeeId = { $in: teamMembers.map(member => member._id) }
     }
 
-    const expenses = await Expense.find(filters).sort({ createdAt: -1 })
+    const [expenses, total] = await Promise.all([
+      Expense.find(filters)
+        .sort({ createdAt: safeSortOrder })
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber),
+      Expense.countDocuments(filters)
+    ])
 
-    return res.status(200).json({
+    const payload = {
       expenses: expenses.map(toExpenseResponse),
-      total: expenses.length
-    })
+      pagination: buildPaginationMeta(pageNumber, limitNumber, total)
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res.status(500).json({
       message: 'Failed to fetch expense requests',
@@ -162,6 +233,11 @@ const reviewExpense = async (req, res, nextStatus) => {
       amount: expense.amount
     }
   })
+
+  await Promise.all([
+    clearCacheByPrefix('expenses:'),
+    clearCacheByPrefix('dashboard:')
+  ])
 
   return res.status(200).json({ expense: toExpenseResponse(expense) })
 }

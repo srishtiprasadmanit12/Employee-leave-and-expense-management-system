@@ -1,7 +1,11 @@
+import jwt from 'jsonwebtoken'
 import { Expense } from '../models/Expense.js'
 import { Leave } from '../models/Leave.js'
 import { User } from '../models/User.js'
 import { ROLES } from '../middlewares/auth.middleware.js'
+import { getCache, setCache } from '../utils/cache.js'
+import { env } from '../config/env.js'
+import { extractTokenFromHeader, decodeToken } from '../utils/jwt.js'
 
 const toStatusMap = rows => {
   return rows.reduce((acc, row) => {
@@ -21,7 +25,36 @@ const getStatusCounts = async (Model, matchFilter) => {
 
 export const getDashboard = async (req, res) => {
   try {
-    const { role, _id: userId } = req.user
+    // Extract and validate token
+    const authHeader = req.headers.authorization || ''
+    const token = extractTokenFromHeader(authHeader)
+
+    if (!token) {
+      return res
+        .status(401)
+        .json({ message: 'Unauthorized: No token provided' })
+    }
+
+    const decoded = decodeToken(token, env.jwtSecret)
+
+    if (!decoded) {
+      return res.status(401).json({ message: 'Unauthorized: Invalid token' })
+    }
+
+    const userId = decoded.userId
+    const { role } = req.user
+
+    // Validate userId from token matches req.user
+    if (String(userId) !== String(req.user._id)) {
+      return res.status(401).json({ message: 'Unauthorized: Token mismatch' })
+    }
+
+    const cacheKey = `dashboard:${role}:${String(userId)}`
+    const cachedPayload = await getCache(cacheKey)
+
+    if (cachedPayload) {
+      return res.status(200).json(cachedPayload)
+    }
 
     if (role === ROLES.ADMIN) {
       const [employeeCountRows, leaveStatus, expenseStatus] = await Promise.all(
@@ -37,7 +70,7 @@ export const getDashboard = async (req, res) => {
 
       const totalEmployees = employeeCountRows[0]?.count || 0
 
-      return res.status(200).json({
+      const payload = {
         role,
         cards: {
           totalEmployees,
@@ -48,7 +81,11 @@ export const getDashboard = async (req, res) => {
         },
         leaveStatus,
         expenseStatus
-      })
+      }
+
+      await setCache(cacheKey, payload)
+
+      return res.status(200).json(payload)
     }
 
     if (role === ROLES.MANAGER) {
@@ -60,7 +97,7 @@ export const getDashboard = async (req, res) => {
         getStatusCounts(Expense, { employeeId: { $in: teamMemberIds } })
       ])
 
-      return res.status(200).json({
+      const payload = {
         role,
         cards: {
           teamMembers: teamMemberIds.length,
@@ -71,7 +108,11 @@ export const getDashboard = async (req, res) => {
         },
         leaveStatus,
         expenseStatus
-      })
+      }
+
+      await setCache(cacheKey, payload)
+
+      return res.status(200).json(payload)
     }
 
     const [leaveStatus, expenseStatus] = await Promise.all([
@@ -79,7 +120,7 @@ export const getDashboard = async (req, res) => {
       getStatusCounts(Expense, { employeeId: userId })
     ])
 
-    return res.status(200).json({
+    const payload = {
       role,
       cards: {
         myPendingLeaves: leaveStatus.PENDING || 0,
@@ -89,7 +130,11 @@ export const getDashboard = async (req, res) => {
       },
       leaveStatus,
       expenseStatus
-    })
+    }
+
+    await setCache(cacheKey, payload)
+
+    return res.status(200).json(payload)
   } catch (error) {
     return res
       .status(500)

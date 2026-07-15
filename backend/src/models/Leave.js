@@ -41,4 +41,9 @@ const leaveSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+leaveSchema.index({ employeeId: 1, createdAt: -1 })
+leaveSchema.index({ employeeId: 1, status: 1, createdAt: -1 })
+leaveSchema.index({ status: 1, createdAt: -1 })
+leaveSchema.index({ approvedBy: 1, createdAt: -1 })
+
 export const Leave = mongoose.model('Leave', leaveSchema)
