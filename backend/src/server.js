@@ -20,9 +20,9 @@ const startServer = async () => {
   await connectDB(env.mongoUri)
   await initRedis()
 
- app.listen(env.port, () => {
-    console.log(`Backend server running on http://localhost:${env.port}`)
-  }) 
+ // app.listen(env.port, () => {
+  //   console.log(`Backend server running on http://localhost:${env.port}`)
+  // }) 
 }
 
 startServer()
