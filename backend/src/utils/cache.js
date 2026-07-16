@@ -4,19 +4,24 @@ import { env } from '../config/env.js'
 
 let redisClient = null
 let redisReady = false
+let redisDisabled = false
 
 export const initRedis = async () => {
-  if (!env.redisUrl || redisClient) {
+  if (!env.redisUrl || redisClient || redisDisabled) {
     return redisClient
   }
 
   redisClient = createClient({
-    url: env.redisUrl
+    url: env.redisUrl,
+    socket: {
+      connectTimeout: 2000,
+      reconnectStrategy: () => false
+    }
   })
 
   redisClient.on('error', error => {
     redisReady = false
-    console.error('Redis error:', error.message)
+    console.warn('Redis unavailable, continuing without cache:', error.message)
   })
 
   redisClient.on('ready', () => {
@@ -28,6 +33,8 @@ export const initRedis = async () => {
     await redisClient.connect()
   } catch (error) {
     redisReady = false
+    redisDisabled = true
+    redisClient = null
     console.warn('Redis unavailable, continuing without cache:', error.message)
   }
 
@@ -41,12 +48,17 @@ export const getCache = async key => {
     return null
   }
 
-  const value = await redisClient.get(key)
-  if (!value) {
+  try {
+    const value = await redisClient.get(key)
+    if (!value) {
+      return null
+    }
+
+    return JSON.parse(value)
+  } catch {
+    redisReady = false
     return null
   }
-
-  return JSON.parse(value)
 }
 
 export const setCache = async (
@@ -58,9 +70,13 @@ export const setCache = async (
     return
   }
 
-  await redisClient.set(key, JSON.stringify(value), {
-    EX: ttlSeconds
-  })
+  try {
+    await redisClient.set(key, JSON.stringify(value), {
+      EX: ttlSeconds
+    })
+  } catch {
+    redisReady = false
+  }
 }
 
 export const clearCacheByPrefix = async prefix => {
@@ -68,12 +84,16 @@ export const clearCacheByPrefix = async prefix => {
     return
   }
 
-  const keys = []
-  for await (const key of redisClient.scanIterator({ MATCH: `${prefix}*` })) {
-    keys.push(key)
-  }
+  try {
+    const keys = []
+    for await (const key of redisClient.scanIterator({ MATCH: `${prefix}*` })) {
+      keys.push(key)
+    }
 
-  if (keys.length > 0) {
-    await redisClient.del(keys)
+    if (keys.length > 0) {
+      await redisClient.del(keys)
+    }
+  } catch {
+    redisReady = false
   }
 }

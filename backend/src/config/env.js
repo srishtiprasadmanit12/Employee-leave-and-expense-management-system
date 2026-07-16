@@ -10,5 +10,6 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:5001',
-  cacheTtlSeconds: Number(process.env.CACHE_TTL_SECONDS || 60)
+  cacheTtlSeconds: Number(process.env.CACHE_TTL_SECONDS || 60),
+  uploadsRootDir: process.env.UPLOADS_ROOT_DIR || 'uploads'
 }

@@ -3,8 +3,9 @@ import path from 'path'
 
 import multer from 'multer'
 
-const uploadRoot = process.env.VERCEL?'/tmp/uploads/receipts': path.resolve(process.cwd(), 'uploads/receipts')
-const uploadDirectory = uploadRoot
+import { env } from '../config/env.js'
+
+const uploadDirectory = path.resolve(env.uploadsRootDir, 'receipts')
 fs.mkdirSync(uploadDirectory, { recursive: true })
 
 const storage = multer.diskStorage({
