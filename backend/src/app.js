@@ -13,7 +13,7 @@ import notificationRoutes from './routes/notification.routes.js'
 import usersRoutes from './routes/users.routes.js'
 
 const app = express()
-const uploadsDir = process.env.VERCEL?'/tmp/uploads': path.resolve(process.cwd(), 'uploads')
+
 app.use(
   cors({
     origin: env.clientUrl,
@@ -23,7 +23,7 @@ app.use(
   })
 )
 app.use(express.json())
-app.use('/uploads', express.static(uploadsDir)) // Serve uploaded files
+app.use('/uploads', express.static(path.resolve(env.uploadsRootDir)))
 
 app.get('/api/v1/health', (_req, res) => {
   res.status(200).json({ status: 'ok' })
